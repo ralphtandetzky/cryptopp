@@ -14,7 +14,6 @@
 
 #include "misc.h"
 #include "words.h"
-#include "words.h"
 #include "stdcpp.h"
 #include "integer.h"
 
