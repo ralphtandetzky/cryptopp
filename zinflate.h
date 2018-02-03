@@ -8,8 +8,7 @@
 
 NAMESPACE_BEGIN(CryptoPP)
 
-//! \class LowFirstBitReader
-//! \since Crypto++ 1.0
+/// \since Crypto++ 1.0
 class LowFirstBitReader
 {
 public:
@@ -30,9 +29,8 @@ private:
 
 struct CodeLessThan;
 
-//! \class HuffmanDecoder
-//! \brief Huffman Decoder
-//! \since Crypto++ 1.0
+/// \brief Huffman Decoder
+/// \since Crypto++ 1.0
 class HuffmanDecoder
 {
 public:
@@ -86,9 +84,8 @@ private:
 	mutable std::vector<LookupEntry, AllocatorWithCleanup<LookupEntry> > m_cache;
 };
 
-//! \class Inflator
-//! \brief DEFLATE decompressor (RFC 1951)
-//! \since Crypto++ 1.0
+/// \brief DEFLATE decompressor (RFC 1951)
+/// \since Crypto++ 1.0
 class Inflator : public AutoSignaling<Filter>
 {
 public:
@@ -98,14 +95,18 @@ public:
 		Err(ErrorType e, const std::string &s)
 			: Exception(e, s) {}
 	};
+	/// \brief Exception thrown when a truncated stream is encountered
 	class UnexpectedEndErr : public Err {public: UnexpectedEndErr() : Err(INVALID_DATA_FORMAT, "Inflator: unexpected end of compressed block") {}};
+	/// \brief Exception thrown when a bad block is encountered
 	class BadBlockErr : public Err {public: BadBlockErr() : Err(INVALID_DATA_FORMAT, "Inflator: error in compressed block") {}};
+	/// \brief Exception thrown when an invalid distance is encountered
+	class BadDistanceErr : public Err {public: BadDistanceErr() : Err(INVALID_DATA_FORMAT, "Inflator: error in bit distance") {}};
 
-	//! \brief RFC 1951 Decompressor
-	//! \param attachment the filter's attached transformation
-	//! \param repeat decompress multiple compressed streams in series
-	//! \param autoSignalPropagation 0 to turn off MessageEnd signal
-	Inflator(BufferedTransformation *attachment = NULL, bool repeat = false, int autoSignalPropagation = -1);
+	/// \brief RFC 1951 Decompressor
+	/// \param attachment the filter's attached transformation
+	/// \param repeat decompress multiple compressed streams in series
+	/// \param autoSignalPropagation 0 to turn off MessageEnd signal
+	Inflator(BufferedTransformation *attachment = NULLPTR, bool repeat = false, int autoSignalPropagation = -1);
 
 	void IsolatedInitialize(const NameValuePairs &parameters);
 	size_t Put2(const byte *inString, size_t length, int messageEnd, bool blocking);

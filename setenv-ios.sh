@@ -11,7 +11,7 @@
 # See http://www.cryptopp.com/wiki/iOS_(Command_Line) for more details
 # ====================================================================
 
-set -eu
+# set -eu
 
 #########################################
 #####       Clear old options       #####
@@ -78,22 +78,22 @@ do
   fi
 
   # ARM64
-  if [ "$CL" == "arm64" ]; then
+  if [[ ("$CL" == "arm64" || "$CL" == "armv8" || "$CL" == "aarch64") ]]; then
     IOS_ARCH=arm64
   fi
 
   # iPhone
-  if [ "$CL" == "iphone" ] || [ "$CL" == "iphoneos" ]; then
+  if [[ ("$CL" == "iphone" || "$CL" == "iphoneos") ]]; then
     APPLE_SDK=iPhoneOS
   fi
 
   # iPhone Simulator
-  if [ "$CL" == "simulator" ] || [ "$CL" == "iphonesimulator" ]; then
+  if [[ ("$CL" == "simulator" || "$CL" == "iphonesimulator") ]]; then
     APPLE_SDK=iPhoneSimulator
   fi
 
   # Watch
-  if [ "$CL" == "watch" ] || [ "$CL" == "watchos" ] || [ "$CL" == "applewatch" ]; then
+  if [[ ("$CL" == "watch" || "$CL" == "watchos" || "$CL" == "applewatch") ]]; then
     APPLE_SDK=WatchOS
   fi
 
@@ -103,12 +103,12 @@ do
   fi
 
   # Apple TV
-  if [ "$CL" == "tv" ] || [ "$CL" == "appletv" ] || [ "$CL" == "appletvos" ]; then
+  if [[ ("$CL" == "tv" || "$CL" == "appletv" || "$CL" == "appletvos") ]]; then
     APPLE_SDK=AppleTVOS
   fi
 
   # Apple TV Simulator
-  if [ "$CL" == "tvsimulator" ] || [ "$CL" == "appletvsimulator" ]; then
+  if [[ ("$CL" == "tvsimulator" || "$CL" == "appletvsimulator") ]]; then
     APPLE_SDK=AppleTVSimulator
   fi
 
@@ -208,12 +208,17 @@ if [ "$IOS_ARCH" == "arm64" ]; then
   IOS_FLAGS=-miphoneos-version-min=7
 fi
 
+# Yet another ARM64 fixup.
+if [ "$APPLE_SDK" == "AppleTVOS" ]; then
+  IOS_FLAGS=""
+fi
+
 # ARM64 Simulator fixup. Under Xcode 6/iOS 8, it uses x86_64 and not i386
 if [ "$IOS_ARCH" == "x86_64" ]; then
   IOS_FLAGS=-miphoneos-version-min=8
 fi
 
-# Simulator uses i386 or x86_64, Device uses ARMv5, ARMv6, ARMv7, or ARMv7s
+# Simulator uses i386 or x86_64, Device uses ARMv5, ARMv6, ARMv7, ARMv7s or ARMv8
 #
 # Apple deprecated ARMv5 at iOS 4.0, and ARMv6 at iOS 5.0
 # http://stackoverflow.com/questions/7488657/how-to-build-for-armv6-and-armv7-architectures-with-ios-5
@@ -270,7 +275,7 @@ fi
 FOUND_ALL=1
 
 # Apple's embedded g++ cannot compile integer.cpp
-TOOLS=(clang clang++ ar ranlib libtool ld)
+TOOLS=(clang clang++ libtool ld)
 for tool in ${TOOLS[@]}
 do
 	if [ ! -e "$IOS_TOOLCHAIN/$tool" ] && [ ! -e "$XCODE_TOOLCHAIN/$tool" ]; then
@@ -283,10 +288,22 @@ if [ "$FOUND_ALL" -eq "0" ]; then
 	[ "$0" = "$BASH_SOURCE" ] && exit 1 || return 1
 fi
 
+# Exports added for Autotools. GNUmakefile-cross does not use them.
+# What to do for AR=libtool and ARFLAGS?
+export CPP="$IOS_TOOLCHAIN/cpp"
+export CC="$IOS_TOOLCHAIN/clang"
+export CXX="$IOS_TOOLCHAIN/clang++"
+export LD="$IOS_TOOLCHAIN/ld"
+export AS="$IOS_TOOLCHAIN/as"
+export AR="$IOS_TOOLCHAIN/ar"
+export RANLIB="$IOS_TOOLCHAIN/ranlib"
+export STRIP="$IOS_TOOLCHAIN/strip"
+
 echo
 echo "*******************************************************************************"
-echo "It looks the the environment is set correctly. Your next step is"
-echo "build the library with 'make -f GNUmakefile-cross'"
+echo "It looks the the environment is set correctly. Your next step is build"
+echo "the library with 'make -f GNUmakefile-cross'. You can create a versioned"
+echo "shared object using 'HAS_SOLIB_VERSION=1 make -f GNUmakefile-cross'"
 echo "*******************************************************************************"
 echo
 

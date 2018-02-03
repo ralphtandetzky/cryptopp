@@ -3,6 +3,11 @@
 # ====================================================================
 # Sets the cross compile environment for Android
 # Based upon OpenSSL's setenv-android.sh (by TH, JW, and SM).
+# Updated by Skycoder42 to the latest NDK.
+# These changes are based on the current recommendations for Android
+# for their "Unified Headers". Details can be found at:
+# https://android.googlesource.com/platform/ndk.git/+/HEAD/docs/UnifiedHeaders.md
+# https://android.googlesource.com/platform/ndk/+/master/docs/PlatformApis.md
 #
 # Crypto++ Library is copyrighted as a compilation and (as of version 5.6.2)
 # licensed under the Boost Software License 1.0, while the individual files
@@ -11,7 +16,7 @@
 # See http://www.cryptopp.com/wiki/Android_(Command_Line) for more details
 # ====================================================================
 
-set -eu
+# set -eu
 
 unset IS_CROSS_COMPILE
 
@@ -22,13 +27,11 @@ unset IS_ARM_EMBEDDED
 # Variables used in GNUmakefile-cross
 unset AOSP_FLAGS
 unset AOSP_SYSROOT
+unset AOSP_LD_SYSROOT
+unset AOSP_SYS_ARCH_INC
 unset AOSP_STL_INC
 unset AOSP_STL_LIB
 unset AOSP_BITS_INC
-
-# Former variables
-unset ANDROID_FLAGS ANDROID_SYSROOT
-unset ANDROID_STL_INC ANDROID_STL_LIB
 
 # Tools set by this script
 unset CPP CC CXX LD AS AR RANLIB STRIP
@@ -47,20 +50,28 @@ if [ -z "${AOSP_TOOLCHAIN_SUFFIX-}" ]; then
 	AOSP_TOOLCHAIN_SUFFIX=4.9
 fi
 
-# Set AOSP_API to the API you want to use. 'armeabi' and 'armeabi-v7a' need
+# Set AOSP_API_VERSION to the API you want to use. 'armeabi' and 'armeabi-v7a' need
 #   API 3 (or above), 'mips' and 'x86' need API 9 (or above), etc.
-# AOSP_API="android-3"     # Android 1.5 and above
-# AOSP_API="android-4"     # Android 1.6 and above
-# AOSP_API="android-5"     # Android 2.0 and above
-# AOSP_API="android-8"     # Android 2.2 and above
-# AOSP_API="android-9"     # Android 2.3 and above
-# AOSP_API="android-14"    # Android 4.0 and above
-# AOSP_API="android-18"    # Android 4.3 and above
-# AOSP_API="android-19"    # Android 4.4 and above
-# AOSP_API="android-21"    # Android 5.0 and above
-# AOSP_API="android-23"    # Android 6.0 and above
+# AOSP_API_VERSION="3"     # Android 1.5 and above
+# AOSP_API_VERSION="4"     # Android 1.6 and above
+# AOSP_API_VERSION="5"     # Android 2.0 and above
+# AOSP_API_VERSION="8"     # Android 2.2 and above
+# AOSP_API_VERSION="9"     # Android 2.3 and above
+# AOSP_API_VERSION="14"    # Android 4.0 and above
+# AOSP_API_VERSION="18"    # Android 4.3 and above
+# AOSP_API_VERSION="19"    # Android 4.4 and above
+# AOSP_API_VERSION="21"    # Android 5.0 and above
+# AOSP_API_VERSION="23"    # Android 6.0 and above
+if [ -z "${AOSP_API_VERSION-}" ]; then
+	AOSP_API_VERSION="21"
+fi
+
 if [ -z "${AOSP_API-}" ]; then
-	AOSP_API="android-21"
+	AOSP_API="android-${AOSP_API_VERSION}"
+else
+	echo "WARNING: Using AOSP_API has been deprecated. Please use AOSP_API_VERSION instead."
+	echo "If you set for example AOSP_API=android-23 then now instead set AOSP_API_VERSION=23"
+	exit 1
 fi
 
 #####################################################################
@@ -71,13 +82,13 @@ fi
 #   like ANDROID_NDK_ROOT=/opt/android-ndk-r10e or ANDROID_NDK_ROOT=/usr/local/android-ndk-r10e.
 
 if [ -z "${ANDROID_NDK_ROOT-}" ]; then
-	ANDROID_NDK_ROOT=$(find /opt -maxdepth 1 -type d -name android-ndk-r10* 2>/dev/null | tail -1)
+	ANDROID_NDK_ROOT=$(find /opt -maxdepth 1 -type d -name android-ndk* 2>/dev/null | tail -1)
 
 	if [ -z "$ANDROID_NDK_ROOT" ]; then
-		ANDROID_NDK_ROOT=$(find /usr/local -maxdepth 1 -type d -name android-ndk-r10* 2>/dev/null | tail -1)
+		ANDROID_NDK_ROOT=$(find /usr/local -maxdepth 1 -type d -name android-ndk* 2>/dev/null | tail -1)
 	fi
 	if [ -z "$ANDROID_NDK_ROOT" ]; then
-		ANDROID_NDK_ROOT=$(find $HOME -maxdepth 1 -type d -name android-ndk-r10* 2>/dev/null | tail -1)
+		ANDROID_NDK_ROOT=$(find $HOME -maxdepth 1 -type d -name android-ndk* 2>/dev/null | tail -1)
 	fi
 	if [ -d "$HOME/Library/Android/sdk/ndk-bundle" ]; then
 		ANDROID_NDK_ROOT="$HOME/Library/Android/sdk/ndk-bundle"
@@ -93,7 +104,7 @@ fi
 #####################################################################
 
 if [ "$#" -lt 1 ]; then
-	THE_ARCH=armv7
+	THE_ARCH=armv7a-neon
 else
 	THE_ARCH=$(tr [A-Z] [a-z] <<< "$1")
 fi
@@ -105,21 +116,23 @@ case "$THE_ARCH" in
 	TOOLCHAIN_NAME="arm-linux-androideabi"
 	AOSP_ABI="armeabi"
 	AOSP_ARCH="arch-arm"
-	AOSP_FLAGS="-march=armv5te -mtune=xscale -mthumb -msoft-float -funwind-tables -fexceptions -frtti"
+	AOSP_FLAGS="-march=armv5te -mtune=xscale -mthumb -msoft-float -DCRYPTOPP_DISABLE_ASM -funwind-tables -fexceptions -frtti"
 	;;
-  armv7a|armeabi-v7a)
+  armv7a|armv7-a|armeabi-v7a)
 	TOOLCHAIN_ARCH="arm-linux-androideabi"
 	TOOLCHAIN_NAME="arm-linux-androideabi"
 	AOSP_ABI="armeabi-v7a"
 	AOSP_ARCH="arch-arm"
-	AOSP_FLAGS="-march=armv7-a -mthumb -mfpu=vfpv3-d16 -mfloat-abi=softfp -Wl,--fix-cortex-a8 -funwind-tables -fexceptions -frtti"
+	AOSP_FLAGS="-march=armv7-a -mthumb -mfpu=vfpv3-d16 -mfloat-abi=softfp -DCRYPTOPP_DISABLE_ASM -Wl,--fix-cortex-a8 -funwind-tables -fexceptions -frtti"
 	;;
   hard|armv7a-hard|armeabi-v7a-hard)
-	TOOLCHAIN_ARCH="arm-linux-androideabi"
-	TOOLCHAIN_NAME="arm-linux-androideabi"
-	AOSP_ABI="armeabi-v7a"
-	AOSP_ARCH="arch-arm"
-	AOSP_FLAGS="-mhard-float -D_NDK_MATH_NO_SOFTFP=1 -march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=softfp -Wl,--fix-cortex-a8 -funwind-tables -fexceptions -frtti -Wl,--no-warn-mismatch -Wl,-lm_hard"
+    echo hard, armv7a-hard and armeabi-v7a-hard are not supported, as android uses softfloats
+    exit 1
+	#TOOLCHAIN_ARCH="arm-linux-androideabi"
+	#TOOLCHAIN_NAME="arm-linux-androideabi"
+	#AOSP_ABI="armeabi-v7a"
+	#AOSP_ARCH="arch-arm"
+	#AOSP_FLAGS="-mhard-float -D_NDK_MATH_NO_SOFTFP=1 -march=armv7-a -mfpu=vfpv3-d16 -DCRYPTOPP_DISABLE_ASM -mfloat-abi=softfp -Wl,--fix-cortex-a8 -funwind-tables -fexceptions -frtti -Wl,--no-warn-mismatch -Wl,-lm_hard"
 	;;
   neon|armv7a-neon)
 	TOOLCHAIN_ARCH="arm-linux-androideabi"
@@ -154,14 +167,14 @@ case "$THE_ARCH" in
 	TOOLCHAIN_NAME="i686-linux-android"
 	AOSP_ABI="x86"
 	AOSP_ARCH="arch-x86"
-	AOSP_FLAGS="-march=i686 -mtune=intel -mssse3 -mfpmath=sse -funwind-tables -fexceptions -frtti"
+	AOSP_FLAGS="-mtune=intel -mssse3 -mfpmath=sse -DCRYPTOPP_DISABLE_SSE4 -funwind-tables -fexceptions -frtti"
 	;;
   x86_64|x64)
 	TOOLCHAIN_ARCH="x86_64"
 	TOOLCHAIN_NAME="x86_64-linux-android"
 	AOSP_ABI="x86_64"
 	AOSP_ARCH="arch-x86_64"
-	AOSP_FLAGS="-march=x86-64 -msse4.2 -mpopcnt -mtune=intel -funwind-tables -fexceptions -frtti"
+	AOSP_FLAGS="-march=x86-64 -msse4.2 -mpopcnt -mtune=intel -DCRYPTOPP_DISABLE_CLMUL -DCRYPTOPP_DISABLE_AES -DCRYPTOPP_DISABLE_SHA -funwind-tables -fexceptions -frtti"
 	;;
   *)
 	echo "ERROR: Unknown architecture $1"
@@ -171,12 +184,12 @@ esac
 
 #####################################################################
 
+# add missing android API version flag as of https://android.googlesource.com/platform/ndk.git/+/HEAD/docs/UnifiedHeaders.md
+AOSP_FLAGS="-D__ANDROID_API__=$AOSP_API_VERSION $AOSP_FLAGS"
+
 # GNUmakefile-cross expects these to be set. They are also used in the tests below.
 export IS_ANDROID=1
 export AOSP_FLAGS
-
-# TODO: for the previous GNUmakefile-cross. These can go away eventually.
-export ANDROID_FLAGS=$AOSP_FLAGS
 
 export CPP="$TOOLCHAIN_NAME-cpp"
 export CC="$TOOLCHAIN_NAME-gcc"
@@ -186,6 +199,7 @@ export AS="$TOOLCHAIN_NAME-as"
 export AR="$TOOLCHAIN_NAME-ar"
 export RANLIB="$TOOLCHAIN_NAME-ranlib"
 export STRIP="$TOOLCHAIN_NAME-strip"
+export AOSP_SYS_ARCH_INC="$ANDROID_NDK_ROOT/sysroot/usr/include/$TOOLCHAIN_NAME"
 
 #####################################################################
 
@@ -272,10 +286,8 @@ fi
 
 # Android SYSROOT. It will be used on the command line with --sysroot
 #   http://android.googlesource.com/platform/ndk/+/ics-mr0/docs/STANDALONE-TOOLCHAIN.html
-export AOSP_SYSROOT="$ANDROID_NDK_ROOT/platforms/$AOSP_API/$AOSP_ARCH"
-
-# TODO: export for the previous GNUmakefile-cross. These can go away eventually.
-export ANDROID_SYSROOT=$AOSP_SYSROOT
+export AOSP_SYSROOT="$ANDROID_NDK_ROOT/sysroot"
+export AOSP_LD_SYSROOT="$ANDROID_NDK_ROOT/platforms/$AOSP_API/$AOSP_ARCH"
 
 #####################################################################
 
@@ -285,6 +297,12 @@ if [ "$#" -lt 2 ]; then
 	THE_STL=gnu-shared
 else
 	THE_STL=$(tr [A-Z] [a-z] <<< "$2")
+fi
+
+# LLVM include directory may be different depending on NDK version. Default to new location (latest NDK checked: r16beta1).
+LLVM_INCLUDE_DIR="$ANDROID_NDK_ROOT/sources/cxx-stl/llvm-libc++/include"
+if [ ! -d "$LLVM_INCLUDE_DIR" ]; then
+	LLVM_INCLUDE_DIR="$ANDROID_NDK_ROOT/sources/cxx-stl/llvm-libc++/libcxx/include"
 fi
 
 case "$THE_STL" in
@@ -307,11 +325,21 @@ case "$THE_STL" in
 	AOSP_STL_LIB="$ANDROID_NDK_ROOT/sources/cxx-stl/gnu-libstdc++/$AOSP_TOOLCHAIN_SUFFIX/libs/$AOSP_ABI/libgnustl_shared.so"
 	;;
   llvm-static)
-	AOSP_STL_INC="$ANDROID_NDK_ROOT/sources/cxx-stl/llvm-libc++/libcxx/include"
+	echo WARNING: llvm is still in experimental state and migth not work as expected
+	if [ ! -d "$LLVM_INCLUDE_DIR" ]; then
+		echo "ERROR: Unable to locate include LLVM directory at $LLVM_INCLUDE_DIR -- has it moved since NDK r16beta1?"
+		[ "$0" = "$BASH_SOURCE" ] && exit 1 || return 1
+	fi
+	AOSP_STL_INC="$LLVM_INCLUDE_DIR"
 	AOSP_STL_LIB="$ANDROID_NDK_ROOT/sources/cxx-stl/llvm-libc++/libs/$AOSP_ABI/libc++_static.a"
 	;;
   llvm|llvm-shared)
-	AOSP_STL_INC="$ANDROID_NDK_ROOT/sources/cxx-stl/llvm-libc++/libcxx/include"
+	echo WARNING: llvm is still in experimental state and migth not work as expected
+	if [ ! -d "$LLVM_INCLUDE_DIR" ]; then
+		echo "ERROR: Unable to locate LLVM include directory at $LLVM_INCLUDE_DIR -- has it moved since NDK r16beta1?"
+		[ "$0" = "$BASH_SOURCE" ] && exit 1 || return 1
+	fi
+	AOSP_STL_INC="$LLVM_INCLUDE_DIR"
 	AOSP_STL_LIB="$ANDROID_NDK_ROOT/sources/cxx-stl/llvm-libc++/libs/$AOSP_ABI/libc++_shared.so"
 	;;
   *)
@@ -334,13 +362,25 @@ fi
 export AOSP_STL_INC
 export AOSP_STL_LIB
 
-# TODO: for the previous GNUmakefile-cross. These can go away eventually.
-export ANDROID_STL_INC=$AOSP_STL_INC
-export ANDROID_STL_LIB=$AOSP_STL_LIB
-
 if [ ! -z "$AOSP_BITS_INC" ]; then
 	export AOSP_BITS_INC
 fi
+
+# Now that we are using cpu-features from Android rather than CPU probing, we
+# need to copy cpu-features.h and cpu-features.c from the NDK into our source
+# directory and then build it.
+
+if [[ ! -e "$ANDROID_NDK_ROOT/sources/android/cpufeatures/cpu-features.h" ]]; then
+	echo "ERROR: Unable to locate cpu-features.h"
+	[ "$0" = "$BASH_SOURCE" ] && exit 1 || return 1
+fi
+cp "$ANDROID_NDK_ROOT/sources/android/cpufeatures/cpu-features.h" .
+
+if [[ ! -e "$ANDROID_NDK_ROOT/sources/android/cpufeatures/cpu-features.c" ]]; then
+	echo "ERROR: Unable to locate cpu-features.c"
+	[ "$0" = "$BASH_SOURCE" ] && exit 1 || return 1
+fi
+cp "$ANDROID_NDK_ROOT/sources/android/cpufeatures/cpu-features.c" .
 
 #####################################################################
 
@@ -351,17 +391,23 @@ if [ ! -z "$VERBOSE" ] && [ "$VERBOSE" != "0" ]; then
   echo "AOSP_ABI: $AOSP_ABI"
   echo "AOSP_API: $AOSP_API"
   echo "AOSP_SYSROOT: $AOSP_SYSROOT"
+  echo "AOSP_LD_SYSROOT: $AOSP_LD_SYSROOT"
   echo "AOSP_FLAGS: $AOSP_FLAGS"
+  echo "AOSP_SYS_ARCH_INC: $AOSP_SYS_ARCH_INC"
   echo "AOSP_STL_INC: $AOSP_STL_INC"
   echo "AOSP_STL_LIB: $AOSP_STL_LIB"
   if [ ! -z "$AOSP_BITS_INC" ]; then
     echo "AOSP_BITS_INC: $AOSP_BITS_INC"
   fi
+
+  if [ -e "cpu-features.h" ] && [ -e "cpu-features.c" ]; then
+    echo "CPU FEATURES: cpu-features.h and cpu-features.c are present"
+  fi
 fi
 
 #####################################################################
 
-COUNT=$(echo -n "$AOSP_STL_LIB" | grep -i -c 'libstdc++')
+COUNT=$(echo -n "$AOSP_STL_LIB" | egrep -i -c 'libstdc\+\+')
 if [[ ("$COUNT" -ne "0") ]]; then
 	echo
 	echo "*******************************************************************************"
@@ -382,7 +428,7 @@ if [[ ("$COUNT" -ne "0") ]]; then
 	echo "*******************************************************************************"
 fi
 
-COUNT=$(echo -n "$AOSP_STL_LIB" | egrep -i -c 'libc++)')
+COUNT=$(echo -n "$AOSP_STL_LIB" | egrep -i -c 'libc\+\+')
 if [[ ("$COUNT" -ne "0") ]]; then
 	echo
 	echo "*******************************************************************************"
@@ -394,8 +440,9 @@ fi
 
 echo
 echo "*******************************************************************************"
-echo "It looks the the environment is set correctly. Your next step is"
-echo "build the library with 'make -f GNUmakefile-cross'"
+echo "It looks the the environment is set correctly. Your next step is build"
+echo "the library with 'make -f GNUmakefile-cross'. You can create a versioned"
+echo "shared object using 'HAS_SOLIB_VERSION=1 make -f GNUmakefile-cross'"
 echo "*******************************************************************************"
 echo
 

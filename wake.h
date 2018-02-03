@@ -1,7 +1,7 @@
-// wake.h - written and placed in the public domain by Wei Dai
+// wake.h - originally written and placed in the public domain by Wei Dai
 
-//! \file wake.h
-//! \brief Classes for WAKE stream cipher
+/// \file wake.h
+/// \brief Classes for WAKE stream cipher
 
 #ifndef CRYPTOPP_WAKE_H
 #define CRYPTOPP_WAKE_H
@@ -12,10 +12,9 @@
 
 NAMESPACE_BEGIN(CryptoPP)
 
-//! \class WAKE_OFB_Info
-//! \brief WAKE stream cipher information
-//! \tparam B Endianess of the stream cipher
-//! \since Crypto++ 1.0
+/// \brief WAKE stream cipher information
+/// \tparam B Endianness of the stream cipher
+/// \since Crypto++ 1.0
 template <class B = BigEndian>
 struct WAKE_OFB_Info : public FixedKeyLength<32>
 {
@@ -32,10 +31,9 @@ protected:
 	word32 r3, r4, r5, r6;
 };
 
-//! \class WAKE_Policy
-//! \brief WAKE stream cipher operation
-//! \tparam B Endianess of the stream cipher
-//! \since Crypto++ 1.0
+/// \brief WAKE stream cipher operation
+/// \tparam B Endianness of the stream cipher
+/// \since Crypto++ 1.0
 template <class B = BigEndian>
 class CRYPTOPP_NO_VTABLE WAKE_Policy : public AdditiveCipherConcretePolicy<word32, 1, 64>, protected WAKE_Base
 {
@@ -46,10 +44,9 @@ protected:
 	bool CipherIsRandomAccess() const {return false;}
 };
 
-//! \class WAKE_OFB
-//! \brief WAKE stream cipher
-//! \tparam B Endianess of the stream cipher
-//! \since Crypto++ 1.0
+/// \brief WAKE stream cipher
+/// \tparam B Endianness of the stream cipher
+/// \since Crypto++ 1.0
 template <class B = BigEndian>
 struct WAKE_OFB : public WAKE_OFB_Info<B>, public SymmetricCipherDocumentation
 {
